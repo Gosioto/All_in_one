@@ -1,0 +1,55 @@
+version: '3.8'
+
+# Docker Compose для проекта test_work_fullstack
+# Контекст сборки: директория test_work_fullstack
+
+services:
+  # PostgreSQL база данных
+  postgres:
+    image: postgres:15-alpine
+    container_name: todo_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: todo_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - todo_network
+
+  # Backend + Frontend приложение
+  app:
+    build:
+      context: . 
+      dockerfile: Dockerfile
+    container_name: todo_app
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/todo_db
+      JWT_SECRET: ${JWT_SECRET:-change-this-secret-key-in-production}
+      JWT_ALGORITHM: HS256
+      JWT_EXPIRES_MIN: 1440
+      APP_ENV: production
+      APP_HOST: 0.0.0.0
+      APP_PORT: 8000
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - todo_network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  todo_network:
+    driver: bridge
